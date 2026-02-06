@@ -14,7 +14,7 @@ export interface PDFUploadState {
 }
 
 interface PDFUploadProps {
-  onUploadSuccess: (documentId: string, filename: string) => void;
+  onUploadSuccess: (documentId: string) => void;
   disabled?: boolean;
 }
 
@@ -85,7 +85,7 @@ export function PDFUpload({ onUploadSuccess, disabled = false }: PDFUploadProps)
         error: null,
       });
 
-      onUploadSuccess(data.documentId, data.filename);
+      onUploadSuccess(data.documentId);
 
       toast({
         type: "success",

@@ -130,17 +130,36 @@ export async function POST(request: Request) {
     // Get RAG context if PDF document is provided and we have a user query
     let ragContextFormatted = "";
     if (pdfDocumentId && userQueryText.trim()) {
-      console.log("[v0] Embedding user query for RAG:", userQueryText);
+      console.log(
+        "[v0] RAG: pdfDocumentId provided:",
+        pdfDocumentId,
+        "Query:",
+        userQueryText.substring(0, 50) + "..."
+      );
       const ragContext = await getRAGContext(userQueryText, pdfDocumentId);
-      if (ragContext) {
+      if (ragContext && ragContext.relevantChunks.length > 0) {
         console.log(
-          "[v0] Retrieved RAG chunks:",
-          ragContext.relevantChunks.length
+          "[v0] RAG: Successfully retrieved",
+          ragContext.relevantChunks.length,
+          "chunks from",
+          ragContext.filename
         );
         ragContextFormatted = formatRAGContext(ragContext);
       } else {
-        console.log("[v0] No RAG context found for document");
+        console.log(
+          "[v0] RAG: No relevant chunks found. ragContext:",
+          ragContext,
+          "chunks length:",
+          ragContext?.relevantChunks.length
+        );
       }
+    } else {
+      console.log(
+        "[v0] RAG: Skipping RAG - pdfDocumentId:",
+        pdfDocumentId,
+        "userQueryText:",
+        userQueryText ? "present" : "empty"
+      );
     }
 
     if (message?.role === "user") {

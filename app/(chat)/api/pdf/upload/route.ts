@@ -127,10 +127,22 @@ export async function POST(request: Request): Promise<Response> {
 
     // Store document in memory with its chunks and embeddings
     const documentId = nanoid();
+    
+    console.log("[v0] PDF: Storing document with ID:", documentId);
+    console.log("[v0] PDF: Filename:", file.name);
+    console.log("[v0] PDF: Chunk count:", embeddedChunks.length);
+    
     pdfStorage.storeDocument(
       documentId,
       file.name,
       embeddedChunks
+    );
+    
+    // Verify storage
+    const storedDoc = pdfStorage.getDocument(documentId);
+    console.log(
+      "[v0] PDF: Verification - Document stored:",
+      storedDoc ? `✓ ${storedDoc.chunks.length} chunks` : "✗ NOT FOUND"
     );
 
     return Response.json({

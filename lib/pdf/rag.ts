@@ -20,11 +20,29 @@ export async function getRAGContext(
   topK: number = 3
 ): Promise<RAGContext | null> {
   try {
-    // Get the document
+    // Get the document from storage
     const document = pdfStorage.getDocument(documentId);
+    
+    console.log("[v0] RAG: Looking for document:", documentId);
+    console.log(
+      "[v0] RAG: Document found:",
+      document ? `${document.filename} (${document.chunks.length} chunks)` : "NOT FOUND"
+    );
+
     if (!document) {
+      console.error(
+        "[v0] RAG: Document not found in storage. Available docs:",
+        pdfStorage.getAllDocuments().map((d) => d.id)
+      );
       return null;
     }
+
+    if (document.chunks.length === 0) {
+      console.error("[v0] RAG: Document has no chunks");
+      return null;
+    }
+
+    console.log("[v0] RAG: Embedding query:", query.substring(0, 50) + "...");
 
     // Embed the query
     const { embedding: queryEmbedding } = await embed({
@@ -32,12 +50,16 @@ export async function getRAGContext(
       value: query,
     });
 
+    console.log("[v0] RAG: Query embedded, embedding length:", queryEmbedding.length);
+
     // Find similar chunks
     const similarChunks = findSimilarChunks(
       queryEmbedding,
       document.chunks,
       Math.min(topK, 10)
     );
+
+    console.log("[v0] RAG: Found", similarChunks.length, "similar chunks");
 
     return {
       documentId,
@@ -48,7 +70,7 @@ export async function getRAGContext(
       })),
     };
   } catch (error) {
-    console.error("Error getting RAG context:", error);
+    console.error("[v0] RAG: Error getting RAG context:", error);
     return null;
   }
 }
