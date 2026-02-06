@@ -1,20 +1,12 @@
 import { embed } from "ai";
-import * as pdfjsLib from "pdfjs-dist";
+import pdfParse from "pdf-parse";
 import { nanoid } from "nanoid";
 import { auth } from "@/app/(auth)/auth";
 import { pdfStorage } from "@/lib/pdf/storage";
 import { chunkText } from "@/lib/pdf/utils";
 import { ChatSDKError } from "@/lib/errors";
 
-// Configure PDF.js worker
-if (typeof window === "undefined") {
-  const pdfjsWorker = await import("pdfjs-dist/build/pdf.worker.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerPort = new pdfjsWorker.WorkerMessagePort(
-    pdfjsLib.GlobalWorkerOptions.workerPort
-  );
-}
-
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   try {
     const session = await auth();
 
@@ -23,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
 
     if (!file) {
       return Response.json(
@@ -40,20 +32,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Read PDF file
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    // Read PDF file as buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Extract text from all pages
-    let fullText = "";
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(" ");
-      fullText += pageText + "\n";
-    }
+    // Extract text using pdf-parse (server-only, no workers)
+    const pdfData = await pdfParse(buffer);
+    const fullText = pdfData.text;
 
     // Validate extracted text
     if (!fullText.trim()) {
@@ -91,7 +76,7 @@ export async function POST(request: Request) {
 
     // Store in memory
     const documentId = nanoid();
-    const document = pdfStorage.storeDocument(
+    pdfStorage.storeDocument(
       documentId,
       file.name,
       embeddedChunks
