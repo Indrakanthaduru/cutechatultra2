@@ -7,7 +7,7 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum(["image/jpeg", "image/png"]),
+  mediaType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });
@@ -35,5 +35,3 @@ export const postRequestBodySchema = z.object({
   selectedChatModel: z.string(),
   selectedVisibilityType: z.enum(["public", "private"]),
 });
-
-export type PostRequestBody = z.infer<typeof postRequestBodySchema>;
