@@ -46,6 +46,7 @@ import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
 import type { VisibilityType } from "./visibility-selector";
+import { PDFUpload } from "./pdf-upload";
 
 function setCookie(name: string, value: string) {
   const maxAge = 60 * 60 * 24 * 365; // 1 year
@@ -67,6 +68,8 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  pdfDocumentId,
+  setPdfDocumentId,
 }: {
   chatId: string;
   input: string;
@@ -82,6 +85,8 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  pdfDocumentId?: string | null;
+  setPdfDocumentId?: (id: string | null) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -307,6 +312,15 @@ function PureMultimodalInput({
           />
         )}
 
+      {setPdfDocumentId && (
+        <PDFUpload
+          disabled={status !== "ready"}
+          onUploadSuccess={(documentId) => {
+            setPdfDocumentId(documentId);
+          }}
+        />
+      )}
+
       <input
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         accept="image/jpeg,image/png,application/pdf"
@@ -418,6 +432,7 @@ export const MultimodalInput = memo(
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
       return false;
     if (prevProps.selectedModelId !== nextProps.selectedModelId) return false;
+    if (prevProps.pdfDocumentId !== nextProps.pdfDocumentId) return false;
 
     return true;
   }

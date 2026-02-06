@@ -49,5 +49,8 @@
   },
   "[mdx]": {
     "editor.defaultFormatter": "biomejs.biome"
+  },
+  "files.readonlyInclude": {
+    "**/*": true
   }
 }

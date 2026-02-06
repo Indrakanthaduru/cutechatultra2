@@ -35,6 +35,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { getRAGContext, formatRAGContext } from "@/lib/pdf/rag";
 
 export const maxDuration = 60;
 
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
+    const { id, message, messages, selectedChatModel, selectedVisibilityType, pdfDocumentId } =
       requestBody;
 
     const session = await auth();
@@ -115,6 +116,20 @@ export async function POST(request: Request) {
       country,
     };
 
+    // Get RAG context if PDF document is provided
+    let ragContextFormatted = "";
+    if (pdfDocumentId && message?.role === "user") {
+      const userText = message.parts
+        .filter((part) => (part as any).type === "text")
+        .map((part) => (part as any).text)
+        .join(" ");
+
+      if (userText) {
+        const ragContext = await getRAGContext(userText, pdfDocumentId);
+        ragContextFormatted = formatRAGContext(ragContext);
+      }
+    }
+
     if (message?.role === "user") {
       await saveMessages({
         messages: [
@@ -141,7 +156,7 @@ export async function POST(request: Request) {
       execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: ragContextFormatted + systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
           experimental_activeTools: isReasoningModel
