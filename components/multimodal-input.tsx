@@ -49,7 +49,6 @@ import type { VisibilityType } from "./visibility-selector";
 
 function setCookie(name: string, value: string) {
   const maxAge = 60 * 60 * 24 * 365; // 1 year
-  // biome-ignore lint/suspicious/noDocumentCookie: needed for client-side cookie setting
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}`;
 }
 
@@ -124,13 +123,10 @@ function PureMultimodalInput({
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
-      // Prefer DOM value over localStorage to handle hydration
       const finalValue = domValue || localStorageInput || "";
       setInput(finalValue);
       adjustHeight();
     }
-    // Only run once after hydration
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adjustHeight, localStorageInput, setInput]);
 
   useEffect(() => {
@@ -243,21 +239,26 @@ function PureMultimodalInput({
         return;
       }
 
-      const imageItems = Array.from(items).filter((item) =>
-        item.type.startsWith("image/")
+      const fileItems = Array.from(items).filter(
+        (item) =>
+          item.type.startsWith("image/") || item.type === "application/pdf"
       );
 
-      if (imageItems.length === 0) {
+      if (fileItems.length === 0) {
         return;
       }
 
-      // Prevent default paste behavior for images
       event.preventDefault();
 
-      setUploadQueue((prev) => [...prev, "Pasted image"]);
+      setUploadQueue((prev) => [
+        ...prev,
+        ...fileItems.map((item) =>
+          item.type === "application/pdf" ? "Pasted PDF" : "Pasted image"
+        ),
+      ]);
 
       try {
-        const uploadPromises = imageItems
+        const uploadPromises = fileItems
           .map((item) => item.getAsFile())
           .filter((file): file is File => file !== null)
           .map((file) => uploadFile(file));
@@ -275,8 +276,8 @@ function PureMultimodalInput({
           ...(successfullyUploadedAttachments as Attachment[]),
         ]);
       } catch (error) {
-        console.error("Error uploading pasted images:", error);
-        toast.error("Failed to upload pasted image(s)");
+        console.error("Error uploading pasted files:", error);
+        toast.error("Failed to upload pasted file(s)");
       } finally {
         setUploadQueue([]);
       }
@@ -284,7 +285,6 @@ function PureMultimodalInput({
     [setAttachments, uploadFile]
   );
 
-  // Add paste event listener to textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) {
@@ -309,6 +309,7 @@ function PureMultimodalInput({
 
       <input
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
+        accept="image/jpeg,image/png,application/pdf"
         multiple
         onChange={handleFileChange}
         ref={fileInputRef}
@@ -411,21 +412,12 @@ function PureMultimodalInput({
 export const MultimodalInput = memo(
   PureMultimodalInput,
   (prevProps, nextProps) => {
-    if (prevProps.input !== nextProps.input) {
+    if (prevProps.input !== nextProps.input) return false;
+    if (prevProps.status !== nextProps.status) return false;
+    if (!equal(prevProps.attachments, nextProps.attachments)) return false;
+    if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
       return false;
-    }
-    if (prevProps.status !== nextProps.status) {
-      return false;
-    }
-    if (!equal(prevProps.attachments, nextProps.attachments)) {
-      return false;
-    }
-    if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
-      return false;
-    }
-    if (prevProps.selectedModelId !== nextProps.selectedModelId) {
-      return false;
-    }
+    if (prevProps.selectedModelId !== nextProps.selectedModelId) return false;
 
     return true;
   }
@@ -476,7 +468,6 @@ function PureModelSelectorCompact({
     chatModels[0];
   const [provider] = selectedModel.id.split("/");
 
-  // Provider display names
   const providerNames: Record<string, string> = {
     anthropic: "Anthropic",
     openai: "OpenAI",
