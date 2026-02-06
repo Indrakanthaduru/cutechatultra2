@@ -126,6 +126,7 @@ export function Chat({
               : { message: lastMessage }),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
+            ...(pdfDocumentId && { pdfDocumentId }),
             ...request.body,
           },
         };
@@ -176,6 +177,7 @@ export function Chat({
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [pdfDocumentId, setPdfDocumentId] = useState<string | null>(null);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
   useAutoResume({
@@ -215,12 +217,14 @@ export function Chat({
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
+              pdfDocumentId={pdfDocumentId}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
               setAttachments={setAttachments}
               setInput={setInput}
               setMessages={setMessages}
+              setPdfDocumentId={setPdfDocumentId}
               status={status}
               stop={stop}
             />

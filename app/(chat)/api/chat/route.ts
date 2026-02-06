@@ -35,6 +35,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { getRAGContext, formatRAGContext } from "@/lib/pdf/rag";
 
 export const maxDuration = 60;
 
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
+    const { id, message, messages, selectedChatModel, selectedVisibilityType, pdfDocumentId } =
       requestBody;
 
     const session = await auth();
@@ -115,6 +116,52 @@ export async function POST(request: Request) {
       country,
     };
 
+    // Extract the user's text query from message.parts for RAG embedding
+    // AI SDK user messages use parts array (not content) with text/file parts
+    let userQueryText = "";
+    if (message?.role === "user" && Array.isArray(message.parts)) {
+      // Filter to text parts only, ignore file attachments
+      userQueryText = message.parts
+        .filter((part: any) => part.type === "text")
+        .map((part: any) => part.text)
+        .join(" ");
+    }
+
+    // Get RAG context if PDF document is provided and we have a user query
+    let ragContextFormatted = "";
+    if (pdfDocumentId && userQueryText.trim()) {
+      console.log(
+        "[v0] RAG: pdfDocumentId provided:",
+        pdfDocumentId,
+        "Query:",
+        userQueryText.substring(0, 50) + "..."
+      );
+      const ragContext = await getRAGContext(userQueryText, pdfDocumentId);
+      if (ragContext && ragContext.relevantChunks.length > 0) {
+        console.log(
+          "[v0] RAG: Successfully retrieved",
+          ragContext.relevantChunks.length,
+          "chunks from",
+          ragContext.filename
+        );
+        ragContextFormatted = formatRAGContext(ragContext);
+      } else {
+        console.log(
+          "[v0] RAG: No relevant chunks found. ragContext:",
+          ragContext,
+          "chunks length:",
+          ragContext?.relevantChunks.length
+        );
+      }
+    } else {
+      console.log(
+        "[v0] RAG: Skipping RAG - pdfDocumentId:",
+        pdfDocumentId,
+        "userQueryText:",
+        userQueryText ? "present" : "empty"
+      );
+    }
+
     if (message?.role === "user") {
       await saveMessages({
         messages: [
@@ -141,7 +188,7 @@ export async function POST(request: Request) {
       execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: ragContextFormatted + systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
           experimental_activeTools: isReasoningModel
