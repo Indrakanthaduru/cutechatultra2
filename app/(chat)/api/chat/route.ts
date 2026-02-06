@@ -116,21 +116,11 @@ export async function POST(request: Request) {
       country,
     };
 
-    // Normalize the last user message to a plain string for embedding
+    // Extract the user's text query from message.parts for RAG embedding
+    // AI SDK user messages use parts array (not content) with text/file parts
     let userQueryText = "";
-    if (message?.role === "user") {
-      if (typeof message.content === "string") {
-        // Message is already a string
-        userQueryText = message.content;
-      } else if (Array.isArray(message.content)) {
-        // Message is an array of parts, extract text parts
-        userQueryText = message.content
-          .filter((part: any) => part.type === "text")
-          .map((part: any) => part.text)
-          .join(" ");
-      }
-    } else if (Array.isArray(message?.parts)) {
-      // Fallback: try to extract from parts (for compatibility)
+    if (message?.role === "user" && Array.isArray(message.parts)) {
+      // Filter to text parts only, ignore file attachments
       userQueryText = message.parts
         .filter((part: any) => part.type === "text")
         .map((part: any) => part.text)
