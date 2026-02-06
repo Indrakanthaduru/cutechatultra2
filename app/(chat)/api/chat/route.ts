@@ -116,17 +116,40 @@ export async function POST(request: Request) {
       country,
     };
 
-    // Get RAG context if PDF document is provided
-    let ragContextFormatted = "";
-    if (pdfDocumentId && message?.role === "user") {
-      const userText = message.parts
-        .filter((part) => (part as any).type === "text")
-        .map((part) => (part as any).text)
+    // Normalize the last user message to a plain string for embedding
+    let userQueryText = "";
+    if (message?.role === "user") {
+      if (typeof message.content === "string") {
+        // Message is already a string
+        userQueryText = message.content;
+      } else if (Array.isArray(message.content)) {
+        // Message is an array of parts, extract text parts
+        userQueryText = message.content
+          .filter((part: any) => part.type === "text")
+          .map((part: any) => part.text)
+          .join(" ");
+      }
+    } else if (Array.isArray(message?.parts)) {
+      // Fallback: try to extract from parts (for compatibility)
+      userQueryText = message.parts
+        .filter((part: any) => part.type === "text")
+        .map((part: any) => part.text)
         .join(" ");
+    }
 
-      if (userText) {
-        const ragContext = await getRAGContext(userText, pdfDocumentId);
+    // Get RAG context if PDF document is provided and we have a user query
+    let ragContextFormatted = "";
+    if (pdfDocumentId && userQueryText.trim()) {
+      console.log("[v0] Embedding user query for RAG:", userQueryText);
+      const ragContext = await getRAGContext(userQueryText, pdfDocumentId);
+      if (ragContext) {
+        console.log(
+          "[v0] Retrieved RAG chunks:",
+          ragContext.relevantChunks.length
+        );
         ragContextFormatted = formatRAGContext(ragContext);
+      } else {
+        console.log("[v0] No RAG context found for document");
       }
     }
 
